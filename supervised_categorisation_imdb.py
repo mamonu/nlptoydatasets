@@ -69,37 +69,48 @@ df = processing(df)
 print(df.head())
 
 
-
-features= [c for c in df.columns.values if c  not in ['id', 'length']]
-numeric_features= [c for c in df.columns.values if c  not in ['id', 'text']]
+#list of text features
+features= [c for c in df.columns.values if c  not in ['id', 'length', 'score', 'processed']]
+#list of numeric features
+numeric_features= [c for c in df.columns.values if c  not in ['id', 'text', 'score', 'processed']]
+#target variable
 target = 'score'
+print(features)
 
 X_train, X_test, y_train, y_test = train_test_split(df[features], df[target], test_size=0.33, random_state=42)
 X_train.head()
 
 
-# Transform the training data using only the 'text' column values: count_train
+# Transform and classify the training data using only the 'text' column values
 text_pipeline = Pipeline([
     ('selector', TextSelector(key='text')),
-
     ('vec', CountVectorizer(analyzer ='word', ngram_range = (1,3))),#count vectorizer to create a dtm. Tokenize on words
 #    ('tfidf', TfidfTransformer()), # term frequency–inverse document frequency - not usefull for text 
     ('clf', SGDClassifier(max_iter = 5)), #classifier
 ])
 
+#pipelines are each individualy fitted and transformed
+text_pipeline.fit(X_train, y_train)
+
 num_pipeline = Pipeline([
     ('selector', NumberSelector(key='length')),
     ('standard', StandardScaler())
 ])
+#KeyError: "['length'] not in index"
+num_pipeline.fit_transform(X_train)
 
 
 fu_pipeline = FeatureUnion([('text', text_pipeline), ('length', num_pipeline)])
 
+feature_processing = Pipeline([('fu_pipeline', fu_pipeline)])
+feature_processing.fit_transform(X_train)
+
+
 #print what the pipeline is doing 
-print(fu_pipeline.fit_transform(X_train, y_train))
+#print(fu_pipeline.fit_transform(X_train, y_train))
 
 #print an accuracy score - even though Theo wants me to 5-fold cross validate lets just do this to check 
-print('pipeline score is: ' + str(fu_pipeline.score(X_test, y_test)))
+print('pipeline score is: ' + str(feature_processing.score(X_test, y_test)))
 
 # Compute 5-fold cross-validation scores: cv_scores
 cv_scores = cross_val_score(fu_pipeline, X, y, cv = 5)
