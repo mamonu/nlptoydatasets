@@ -1,4 +1,4 @@
-#Is the baby name for a boy or for a girl? 
+#Is the movie review positive or negative? 
 
 # Import standard packages 
 import matplotlib.pyplot as plt
@@ -16,15 +16,15 @@ from sklearn.pipeline import Pipeline
 
 #import the csv file as a dataframe
 #encoding option is essential
-df = pd.read_csv('babynames.csv', encoding = "ISO-8859-1")
+df = pd.read_csv('imdb.csv', encoding = "ISO-8859-1")
 
-#name - variable to be studied 
-X = df['name'].values
-#sex - variable we want to be able to determine 
-y = df['sex'].values
+#review text - variable to be studied 
+X = df['text'].values
+#score (1 if posiyive 0 if negative) - variable we want to be able to determine 
+y = df['score'].values
 
 #For now we will create a train test split - later on we will use 5 fold cross validation 
-X_train, X_test, y_train, y_test = train_test_split(X, y , test_size = 0.2, random_state = 53)
+X_train, X_test, y_train, y_test = train_test_split(X, y , test_size = 0.2, random_state = 123)
 
 
 
@@ -34,8 +34,8 @@ print(df.head())
 
 # Transform the training data using only the 'text' column values: count_train
 pipeline = Pipeline([
-    ('vec', CountVectorizer(analyzer ='char', ngram_range = (1,2))),#count vectorizer to create a dtm, ngram_range = (1,1) because we want to classify based on the frequency of letters in a name and letters next to a name. 
-#    ('tfidf', TfidfTransformer()), # term frequency–inverse document frequency
+    ('vec', CountVectorizer(analyzer ='word', ngram_range = (1,3))),#count vectorizer to create a dtm. Tokenize on words
+#    ('tfidf', TfidfTransformer()), # term frequency–inverse document frequency - not usefull for text 
     ('clf', SGDClassifier(max_iter = 5)), #classifier
 ])
 
