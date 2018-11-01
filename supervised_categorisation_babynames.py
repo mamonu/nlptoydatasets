@@ -12,11 +12,45 @@ from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.linear_model import SGDClassifier
 
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import Pipeline, FeatureUnion
+
+import re
+
+
+from sklearn.base import BaseEstimator, TransformerMixin
+
+class TextSelector(BaseEstimator, TransformerMixin):
+    """
+    Transformer to select a single column from the data frame to perform additional transformations on
+    Use on text columns in the data
+    """
+    def __init__(self, key):
+        self.key = key
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return X[self.key]
+    
+class NumberSelector(BaseEstimator, TransformerMixin):
+    """
+    Transformer to select a single column from the data frame to perform additional transformations on
+    Use on numeric columns in the data
+    """
+    def __init__(self, key):
+        self.key = key
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return X[[self.key]]
 
 #import the csv file as a dataframe
 #encoding option is essential
 df = pd.read_csv('babynames.csv', encoding = "ISO-8859-1")
+print(df.shape[0]/5)
 
 #name - variable to be studied 
 X = df['name'].values
