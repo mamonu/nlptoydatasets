@@ -84,8 +84,8 @@ from tpot import TPOTClassifier
 from gensim.sklearn_api import W2VTransformer
 # Transform the training data using only the 'text' column values: count_train
 pipeline = Pipeline([
-    ('vec', W2VTransformer(size=10, min_count=1, seed=1)),
-#    ('vec', CountVectorizer(analyzer ='char', ngram_range = (1,2))),#count vectorizer to create a dtm, ngram_range = (1,1) because we want to classify based on the frequency of letters in a name and letters next to a name. 
+#    ('vec', W2VTransformer(size=10, min_count=1, seed=1)),
+    ('vec', CountVectorizer(analyzer ='char', ngram_range = (1,2))),#count vectorizer to create a dtm, ngram_range = (1,1) because we want to classify based on the frequency of letters in a name and letters next to a name. 
 #    ('tfidf', TfidfTransformer()), # term frequency–inverse document frequency
     ('clf', TPOTClassifier(generations=8, population_size=4, verbosity = 2,  max_eval_time_mins=0.35, config_dict = 'TPOT sparse', max_time_mins = 1.8)), #classifier verbosity is just how much infomation the classifier prints whilst working because it takes ages 
 ])
