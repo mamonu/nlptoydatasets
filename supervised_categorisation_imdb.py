@@ -19,6 +19,14 @@ from sklearn.pipeline import Pipeline, FeatureUnion
 #for testing 
 from sklearn.metrics import log_loss
 
+
+from nltk import pos_tag 
+
+
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.linear_model import LogisticRegression
+
+
 #reg_ex
 import re
 
@@ -33,33 +41,57 @@ pd.set_option('display.width', 800)
 
 from sklearn.base import BaseEstimator, TransformerMixin
 
-class TextSelector(BaseEstimator, TransformerMixin):
-    """
-    Transformer to select a single column from the data frame to perform additional transformations on
-    Use on text columns in the data
-    """
-    def __init__(self, key):
-        self.key = key
+# class TextSelector(BaseEstimator, TransformerMixin):
+#     """
+#     Transformer to select a single column from the data frame to perform additional transformations on
+#     Use on text columns in the data
+#     """
+#     def __init__(self, key):
+#         self.key = key
 
-    def fit(self, X, y=None):
-        return self
+#     def fit(self, X, y=None):
+#         return self
 
-    def transform(self, X):
-        return X[self.key]
+#     def transform(self, X):
+#         return X[self.key]
     
-class NumberSelector(BaseEstimator, TransformerMixin):
-    """
-    Transformer to select a single column from the data frame to perform additional transformations on
-    Use on numeric columns in the data
-    """
-    def __init__(self, key):
-        self.key = key
+# class NumberSelector(BaseEstimator, TransformerMixin):
+#     """
+#     Transformer to select a single column from the data frame to perform additional transformations on
+#     Use on numeric columns in the data
+#     """
+#     def __init__(self, key):
+#         self.key = key
 
-    def fit(self, X, y=None):
+#     def fit(self, X, y=None):
+#         return self
+
+#     def transform(self, X):
+#         return X[[self.key]]
+
+
+
+class AdhocStats(BaseEstimator, TransformerMixin):
+    """Extract features from each zoopla csv row for DictVectorizer"""
+
+    def fit(self, x, y=None):
         return self
 
-    def transform(self, X):
-        return X[[self.key]]
+    def transform(self, mycolumn):
+        return [{'length': len(text),
+                 'num_sentences': text.count('.'),
+
+                }
+                for text in mycolumn]
+
+
+adhocstatspipe = Pipeline([
+             
+                ('handpickedfeatures', AdhocStats()),  # returns a list of dicts
+                ('vect', DictVectorizer()),  # list of dicts -> feature matrix
+                ('classifier', LogisticRegression())     # or any other classifier deemed useful!
+    
+])
 
 
 
@@ -87,25 +119,46 @@ df = processing(df)
 
 
 #list of text AND numeric features
-all_features= [c for c in df.columns.values if c  not in ['id', 'score', 'processed']]
+#all_features= [c for c in df.columns.values if c  not in ['id', 'score', 'processed']]
 #list of numeric features
-numeric_features= [c for c in df.columns.values if c  not in ['id', 'text', 'score', 'processed']]
+#numeric_features= [c for c in df.columns.values if c  not in ['id', 'text', 'score', 'processed']]
 #target variable
-target = 'score'
+#target = 'score'
 #print(numeric_features)
 #print(all_features)
 
-
-X_train, X_test, y_train, y_test = train_test_split(df[all_features], df[target], test_size=0.25, random_state=42)
-print('X_train is :')
-print(X_train.head())
+X=df['text'].values.astype('U')
+y=df['score'].values
 
 
+X_train, X_test, y_train, y_test = train_test_split(X ,y , test_size=0.25, random_state=42)
+
+
+
+#X_train, X_test, y_train, y_test = train_test_split(df[all_features], df[target], test_size=0.25, random_state=42)
+#print('X_train is :')
+#print(X_train.head())
+
+
+
+print(adhocstatspipe)
+adhocstatspipe.fit(X_train,y_train)
+
+sc = cross_val_score(adhocstatspipe, X, y, cv=5)
+
+print(sc)
+###################################################
+#dictvectorizer
+###################################################
+#Before: CountVectorizer(analyzer ='word', ngram_range = (1,3)) 
+
+#added pos_tagger
 # Transform and classify the training data using only the 'text' column values
 text_pipeline = Pipeline([
     ('selector', TextSelector(key='text')),
-    ('vec', CountVectorizer(analyzer ='word', ngram_range = (1,3))),#count vectorizer to create a dtm. Tokenize on words
-    ('tfidf', TfidfTransformer()), # term frequency–inverse document frequency - not usefull for text?
+#    ('pos_tagger', pos_tag()),
+    ('vec', DictVectorizer()), #count vectorizer to create a dtm. Tokenize on words
+#    ('tfidf', TfidfTransformer()), # term frequency–inverse document frequency - not usefull for text?
 #    ('clf', SGDClassifier(max_iter = 5)) #classifier THIS ISNT WORKING! because we use the classifier later (but use random forrest)
 ])
 print(text_pipeline)
