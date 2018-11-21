@@ -16,45 +16,94 @@ from sklearn.linear_model import SGDClassifier
 
 from sklearn.pipeline import Pipeline, FeatureUnion
 
+#for testing 
+from sklearn.metrics import log_loss
+
+
+from nltk import pos_tag 
+
+
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.linear_model import LogisticRegression
+
+
+#reg_ex
 import re
+
+
+import pickle
+
+#Some options that will display the data in the prompt in a more desirable format
+pd.set_option('display.max_columns', 32)
+pd.set_option('display.width', 800)
+
 
 
 from sklearn.base import BaseEstimator, TransformerMixin
 
-class TextSelector(BaseEstimator, TransformerMixin):
-    """
-    Transformer to select a single column from the data frame to perform additional transformations on
-    Use on text columns in the data
-    """
-    def __init__(self, key):
-        self.key = key
+# class TextSelector(BaseEstimator, TransformerMixin):
+#     """
+#     Transformer to select a single column from the data frame to perform additional transformations on
+#     Use on text columns in the data
+#     """
+#     def __init__(self, key):
+#         self.key = key
 
-    def fit(self, X, y=None):
-        return self
+#     def fit(self, X, y=None):
+#         return self
 
-    def transform(self, X):
-        return X[self.key]
+#     def transform(self, X):
+#         return X[self.key]
     
-class NumberSelector(BaseEstimator, TransformerMixin):
-    """
-    Transformer to select a single column from the data frame to perform additional transformations on
-    Use on numeric columns in the data
-    """
-    def __init__(self, key):
-        self.key = key
+# class NumberSelector(BaseEstimator, TransformerMixin):
+#     """
+#     Transformer to select a single column from the data frame to perform additional transformations on
+#     Use on numeric columns in the data
+#     """
+#     def __init__(self, key):
+#         self.key = key
 
-    def fit(self, X, y=None):
+#     def fit(self, X, y=None):
+#         return self
+
+#     def transform(self, X):
+#         return X[[self.key]]
+
+
+
+class AdhocStats(BaseEstimator, TransformerMixin):
+    """Extract features from each zoopla csv row for DictVectorizer"""
+
+    def fit(self, x, y=None):
         return self
 
-    def transform(self, X):
-        return X[[self.key]]
+    def transform(self, mycolumn):
+        return [{'length': len(text),
+                 'num_sentences': text.count('.'),
+
+                }
+                for text in mycolumn]
+
+
+adhocstatspipe = Pipeline([
+             
+                ('handpickedfeatures', AdhocStats()),  # returns a list of dicts
+                ('vect', DictVectorizer()),  # list of dicts -> feature matrix
+                ('classifier', LogisticRegression())     # or any other classifier deemed useful!
+    
+])
 
 
 
 #import the csv file as a dataframe
 #encoding option is essential
-df = pd.read_csv('imdb.csv', encoding = "ISO-8859-1")
-#holdoutdf = 
+df_total = pd.read_csv('imdb.csv', encoding = "ISO-8859-1")
+df = df_total.iloc[0:int((df_total.shape[0]/5)*4)]
+holdoutdf = df_total.iloc[int((df_total.shape[0]/5)*4):-1]
+
+#print(df.tail())
+#print(holdoutdf.head())
+
 
 def processing(df):
     #lowering and removing punctuation
@@ -66,30 +115,51 @@ def processing(df):
 
 df = processing(df)
 
-print(df.head())
+#print(df.head())
 
 
 #list of text AND numeric features
-all_features= [c for c in df.columns.values if c  not in ['id', 'score', 'processed']]
+#all_features= [c for c in df.columns.values if c  not in ['id', 'score', 'processed']]
 #list of numeric features
-numeric_features= [c for c in df.columns.values if c  not in ['id', 'text', 'score', 'processed']]
+#numeric_features= [c for c in df.columns.values if c  not in ['id', 'text', 'score', 'processed']]
 #target variable
-target = 'score'
-print(numeric_features)
-print(all_features)
+#target = 'score'
+#print(numeric_features)
+#print(all_features)
+
+X=df['text'].values.astype('U')
+y=df['score'].values
 
 
-X_train, X_test, y_train, y_test = train_test_split(df[all_features], df[target], test_size=0.33, random_state=42)
-print('X_train is :')
-print(X_train.head())
+X_train, X_test, y_train, y_test = train_test_split(X ,y , test_size=0.25, random_state=42)
 
 
+
+#X_train, X_test, y_train, y_test = train_test_split(df[all_features], df[target], test_size=0.25, random_state=42)
+#print('X_train is :')
+#print(X_train.head())
+
+
+
+print(adhocstatspipe)
+adhocstatspipe.fit(X_train,y_train)
+
+sc = cross_val_score(adhocstatspipe, X, y, cv=5)
+
+print(sc)
+###################################################
+#dictvectorizer
+###################################################
+#Before: CountVectorizer(analyzer ='word', ngram_range = (1,3)) 
+
+#added pos_tagger
 # Transform and classify the training data using only the 'text' column values
 text_pipeline = Pipeline([
     ('selector', TextSelector(key='text')),
-    ('vec', CountVectorizer(analyzer ='word', ngram_range = (1,3))),#count vectorizer to create a dtm. Tokenize on words
-    ('tfidf', TfidfTransformer()), # term frequency–inverse document frequency - not usefull for text 
-#    ('clf', SGDClassifier(max_iter = 5)) #classifier THIS ISNT WORKING !!!!!!!!!!!!!!!!!!!
+#    ('pos_tagger', pos_tag()),
+    ('vec', DictVectorizer()), #count vectorizer to create a dtm. Tokenize on words
+#    ('tfidf', TfidfTransformer()), # term frequency–inverse document frequency - not usefull for text?
+#    ('clf', SGDClassifier(max_iter = 5)) #classifier THIS ISNT WORKING! because we use the classifier later (but use random forrest)
 ])
 print(text_pipeline)
 
@@ -144,7 +214,7 @@ hyperparameters = { #'features__text__tfidf__max_df': [0.9, 0.95], # ALSO DOESNT
                    'classifier__max_depth': [50, 70],
                     'classifier__min_samples_leaf': [1,2]
                   }
-clf = GridSearchCV(pipeline, hyperparameters, cv=5)
+clf = GridSearchCV(pipeline, hyperparameters, cv=4)
  
 # Fit and tune model
 clf.fit(X_train, y_train)
@@ -163,12 +233,13 @@ probs = clf.predict_proba(X_test)
 
 print(np.mean(preds == y_test))
 
+################
+### PICKLING ###
+################
 
-
-
-
-
-
+# save the model to disk
+filename = 'finalized_model.sav'
+pickle.dump(clf, open(filename, 'wb'))
 
 
 
@@ -178,16 +249,29 @@ print(np.mean(preds == y_test))
 ###############
 
 
-#read in the test csv 
-df_test = pd.read_csv('imdb.csv', encoding = "ISO-8859-1")
+#Testing the holdout set only
+df_test = holdoutdf.reset_index(drop=True)
+
+# load the pickled model from disk
+loaded_model = pickle.load(open(filename, 'rb'))
+
 
 #preprocessing
 submission = processing(df_test)
-predictions = clf.predict_proba(submission)
+predictions = loaded_model.predict_proba(submission) #was clf
 
-preds = pd.DataFrame(data=predictions, columns = clf.best_estimator_.named_steps['classifier'].classes_)
+preds = pd.DataFrame(data=predictions, columns = loaded_model.best_estimator_.named_steps['classifier'].classes_) #was clf
+#valence_0 is the probability that the review is negative according to the model, valence_1 is the probability that the review is positive according to the model. 
+preds.columns = ['valence_0', 'valence_1']
+#print(preds.head())
 
 #generating a submission file
 result = pd.concat([submission[['text']], preds], axis=1)
 #result.set_index('id', inplace = True)
-print(result.head(10))
+#print(result.head(10))
+
+#Thinking about log loss 
+ellell = log_loss(df_test.iloc[:,1], result.iloc[:,2])
+print('The log loss for the holdout set is ' + str(ellell))
+
+#SOMEWHERE THERE IS A RANDOM STATE I HAVENT SET 
